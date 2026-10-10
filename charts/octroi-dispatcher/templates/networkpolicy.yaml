@@ -1,0 +1,37 @@
+{{- /*
+Egress-only (I1, ADR 0004): selecting this pod for both Ingress and Egress with no `ingress:`
+rules denies all inbound traffic by construction — there is nothing to allow in, the
+dispatcher has no Service. Egress is DNS (needed to resolve the core's hostname) + HTTPS
+(443) to anywhere, since the core's address is operator-configured and not known ahead of
+time; `networkPolicy.extraEgress` narrows this further where the operator's network allows
+pinning a destination (FEATURE-helm-charts H3). Job credentials come from a mounted job
+environment file (ADR 0012) — there is no secret service to reach.
+*/ -}}
+{{- if .Values.networkPolicy.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "octroi-common.fullname" . }}
+  labels:
+    {{- include "octroi-common.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "octroi-common.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - ports:
+        - port: 443
+          protocol: TCP
+    {{- with .Values.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end -}}

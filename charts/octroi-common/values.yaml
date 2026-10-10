@@ -1,0 +1,26 @@
+# octroi-common is a library chart (type: library) — it is never
+# installed on its own and defines no values of its own. Every named template in
+# templates/_helpers.tpl reads `.Values` from the *calling* chart's own values.yaml, which
+# must define these keys with this shape:
+#
+#   image: { registry, repository, tag, pullPolicy }
+#   imagePullSecrets: []
+#   nameOverride: ""
+#   fullnameOverride: ""
+#   brick: ""                   # optional — defaults to the chart name, "octroi-" stripped
+#   existingSecret: ""          # optional — defaults to the release's own Secret
+#   managementPort: 8081
+#   serviceAccount: { create: true, annotations: {}, name: "", hookWeight: null }
+#     hookWeight (optional) — renders the ServiceAccount itself as a pre-install,pre-upgrade
+#     hook at this weight instead of a normal resource; see the "octroi-common.serviceAccount"
+#     doc comment in templates/_helpers.tpl for why a chart with its own pre-install hook Job
+#     needs this.
+#   podSecurityContext: {}      # merged onto octroi-common's secure-by-default baseline
+#   securityContext: {}         # merged onto octroi-common's secure-by-default baseline
+#   probes: { initialDelaySeconds, readinessInitialDelaySeconds, periodSeconds, timeoutSeconds, failureThreshold }
+#   podDisruptionBudget: { enabled: false, minAvailable, maxUnavailable }
+#
+# See values.schema.json for the JSON-Schema form of this same baseline — each consuming
+# chart's own values.schema.json copies it in (cross-chart $ref is not reliably packaged by
+# `helm package`, so this is a documented contract, not an enforced one) — and
+# ci/test-chart for a working example.

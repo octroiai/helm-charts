@@ -1,0 +1,113 @@
+{{- /*
+A single PVC (persistence.enabled) mounted read-write by more than one
+replica would let replicas overwrite each other's enrolled dsp_ token file — refuse to render
+rather than risk that silently. Multiple replicas are safe with the default emptyDir (each just
+re-enrols independently on restart, getting its own Principal — see values.yaml).
+*/ -}}
+{{- if and (gt (.Values.replicaCount | int) 1) .Values.persistence.enabled -}}
+{{- fail "replicaCount > 1 is incompatible with persistence.enabled: true (a shared PVC would let replicas overwrite each other's enrolled token) — use the default emptyDir for multi-replica deployments." -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "octroi-common.fullname" . }}
+  labels:
+    {{- include "octroi-common.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "octroi-common.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "octroi-common.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "octroi-common.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- include "octroi-common.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: dispatcher
+          image: {{ include "octroi-common.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- include "octroi-common.containerSecurityContext" . | nindent 12 }}
+          # No `ports:` for inbound app traffic — only the management port is ever listened
+          # on (server.port: -1, ADR 0004 / I1). Kept out of any Service on purpose: this
+          # chart renders none (verified in CI, see .gitlab-ci.yml).
+          ports:
+            - name: management
+              containerPort: {{ .Values.managementPort }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "octroi-common.fullname" . }}
+            - secretRef:
+                name: {{ .Values.existingSecret | default (include "octroi-common.fullname" .) }}
+            {{- with .Values.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- include "octroi-common.probes" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+            {{- if .Values.jobEnv.existingSecret }}
+            # The job environment file, at the dispatcher's default OCTROI_JOB_ENV_FILE
+            # (/etc/octroi/job.env). A directory mount, not a subPath: the kubelet then propagates
+            # an update of the Secret, which the dispatcher's per-run re-read picks up.
+            - name: job-env
+              mountPath: /etc/octroi
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- with .Values.jobEnv.existingSecret }}
+        - name: job-env
+          secret:
+            secretName: {{ . }}
+            items:
+              - key: job.env
+                path: job.env
+            # owner root, group = the pod's fsGroup: readable by the non-root dispatcher only
+            defaultMode: 0440
+        {{- end }}
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "octroi-common.fullname" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

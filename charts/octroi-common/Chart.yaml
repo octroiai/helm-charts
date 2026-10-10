@@ -1,0 +1,16 @@
+apiVersion: v2
+appVersion: 0.3.3
+description: Shared Helm template library for every octroi.ai brick chart (core, dispatcher,
+  umbrella).
+home: https://github.com/octroiai/helm-charts
+keywords:
+- octroi
+- library
+maintainers:
+- name: octroi.ai
+  url: https://octroi.ai
+name: octroi-common
+sources:
+- https://github.com/octroiai/helm-charts
+type: library
+version: 0.3.3

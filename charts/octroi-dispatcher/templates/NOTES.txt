@@ -1,0 +1,23 @@
+octroi.ai dispatcher ({{ .Chart.AppVersion }}) is deploying as "{{ include "octroi-common.fullname" . }}"
+in namespace {{ .Release.Namespace }}.
+
+No Service, no Ingress: this chart renders neither, by design — the
+dispatcher never accepts inbound traffic, only outbound HTTPS to {{ .Values.config.coreUrl }}.
+
+1. Watch the pod come up (readiness stays down until enrolment succeeds):
+
+   kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -w
+   kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -f
+
+2. Check health directly against the pod (there is no Service to port-forward to):
+
+   kubectl port-forward -n {{ .Release.Namespace }} $(kubectl get pod -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -o name) {{ .Values.managementPort }}:{{ .Values.managementPort }}
+   curl http://localhost:{{ .Values.managementPort }}/actuator/health/readiness
+
+{{- if not .Values.persistence.enabled }}
+
+NOTE — persistence.enabled is false: the enrolled auth token (OCTROI_DISPATCHER_DATA_DIR)
+lives in an emptyDir and is lost if this pod is deleted or rescheduled — it will re-enrol
+with a fresh `djn_` token on next start. Set persistence.enabled: true for a deployment
+expected to survive restarts without re-enrolling.
+{{- end }}

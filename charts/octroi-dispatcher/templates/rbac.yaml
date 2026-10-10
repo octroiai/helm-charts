@@ -1,0 +1,47 @@
+{{- /*
+FEATURE-dispatcher.md D2/D6: a dispatcher deployed via this chart runs in-cluster by definition
+(it's a Kubernetes Deployment — KUBERNETES_SERVICE_HOST is always set for a pod), so it always
+uses KubernetesJobExecutor, which needs the Kubernetes API itself for every job: create/get/list/
+watch/delete on batch/v1 Jobs, get/list/watch/delete + the pods/log subresource on Pods (log
+streaming, D3), and create/get/list/delete on Secrets (the ephemeral per-job Secret carrying the job environment, ADR 0012).
+Namespaced Role + RoleBinding only — never a ClusterRole, the dispatcher's own credential surface
+must never grow beyond one namespace (I1, ADR 0004).
+*/ -}}
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "octroi-common.fullname" . }}
+  namespace: {{ .Values.rbac.targetNamespace | default .Release.Namespace }}
+  labels:
+    {{- include "octroi-common.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "octroi-common.fullname" . }}
+  namespace: {{ .Values.rbac.targetNamespace | default .Release.Namespace }}
+  labels:
+    {{- include "octroi-common.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "octroi-common.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "octroi-common.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end -}}

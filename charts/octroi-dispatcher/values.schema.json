@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "octroi-dispatcher",
+  "description": "See charts/octroi-common/values.schema.json for the common baseline this extends.",
+  "type": "object",
+  "required": [
+    "image",
+    "config",
+    "secrets"
+  ],
+  "properties": {
+    "image": {
+      "type": "object",
+      "required": [
+        "registry",
+        "repository"
+      ],
+      "properties": {
+        "registry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        }
+      }
+    },
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "managementPort": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "existingSecret": {
+      "type": "string"
+    },
+    "serviceAccount": {
+      "type": "object"
+    },
+    "rbac": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "targetNamespace": {
+          "type": "string"
+        }
+      }
+    },
+    "podSecurityContext": {
+      "type": "object"
+    },
+    "securityContext": {
+      "type": "object"
+    },
+    "probes": {
+      "type": "object"
+    },
+    "resources": {
+      "type": "object"
+    },
+    "podDisruptionBudget": {
+      "type": "object"
+    },
+    "nodeSelector": {
+      "type": "object"
+    },
+    "tolerations": {
+      "type": "array"
+    },
+    "affinity": {
+      "type": "object"
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "persistence": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "size": {
+          "type": "string"
+        },
+        "storageClassName": {
+          "type": "string"
+        },
+        "accessMode": {
+          "type": "string",
+          "enum": [
+            "ReadWriteOnce",
+            "ReadWriteMany"
+          ]
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "coreUrl"
+      ],
+      "properties": {
+        "coreUrl": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dispatcherVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enrolmentToken": {
+          "type": "string"
+        }
+      }
+    },
+    "jobEnv": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "existingSecret": {
+          "type": "string"
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "extraEgress": {
+          "type": "array"
+        }
+      }
+    },
+    "extraEnv": {
+      "type": "array"
+    },
+    "extraEnvFrom": {
+      "type": "array"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "env": {
+          "type": "string"
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpu": { "type": "string", "pattern": "^([0-9]+m|[0-9]+(\\.[0-9]+)?)$" },
+        "memory": { "type": "string", "pattern": "^[0-9]+(B|KB|MB|GB|TB)$" },
+        "pids": { "type": "integer", "minimum": 1 },
+        "outputBytes": { "type": "string", "pattern": "^[0-9]+(B|KB|MB|GB|TB)$" },
+        "scratch": { "type": "string", "pattern": "^[0-9]+(B|KB|MB|GB|TB)$" },
+        "readOnlyRootFs": { "type": "boolean" }
+      }
+    },
+    "maxAutoApprovedRisk": {
+      "type": "string",
+      "enum": [
+        "readonly",
+        "read-only",
+        "read_only",
+        "READ_ONLY",
+        "reversible",
+        "REVERSIBLE",
+        "destructive",
+        "DESTRUCTIVE"
+      ]
+    }
+  }
+}

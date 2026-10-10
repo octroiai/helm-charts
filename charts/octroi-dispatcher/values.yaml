@@ -1,0 +1,158 @@
+# Default values for octroi-dispatcher.
+# Deliberately absent from this chart: any Service, Ingress, or bundled dependency — the
+# dispatcher never accepts inbound traffic and never touches a database, cache, or object
+# store. See README.md.
+
+# -- Safe to scale beyond 1 (FEATURE-dispatcher.md D6): each replica enrols independently on its
+# own first boot and is granted its own `svc-dispatcher-<team>-<n>` Principal + `dsp_` token by
+# the core's runner-style enrolment (ADR 0004) — nothing here coordinates identity across
+# replicas, the core does. Must stay at 1 when `persistence.enabled` (see below) — enforced by
+# a template guard, not just this comment.
+replicaCount: 1
+
+image:
+  registry: ghcr.io
+  repository: octroiai/dispatcher
+  # -- Defaults to .Chart.AppVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+brick: ""
+
+# -- Name of an operator-supplied Secret holding the enrolment token, to use instead of this
+# chart's own (e.g. one synced by External-Secrets). Job credentials: `jobEnv.existingSecret`.
+existingSecret: ""
+
+managementPort: 8081
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# -- Job/Pod/Secret permissions the in-cluster driver needs for every job (FEATURE-dispatcher.md
+# D2/D6) — see templates/rbac.yaml for exactly which verbs. Namespaced Role + RoleBinding only,
+# never a ClusterRole .
+rbac:
+  create: true
+  # -- Grant access in a different namespace than this release's own — only needed if
+  # OCTROI_DISPATCHER_KUBERNETES_NAMESPACE (in `extraEnv`) points the dispatcher at one. Requires that
+  # namespace to already exist; leave empty to use this release's namespace (the common case).
+  targetNamespace: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext: {}
+
+probes:
+  initialDelaySeconds: 10
+  readinessInitialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+resources: {}
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# -- SIGTERM handling (H0): the app already lets an in-flight poll cycle return
+# (spring.task.scheduling.shutdown.await-termination). Give it real room here — a hard kill
+# mid-job is still reaped by the core's LeaseReaper, never silently re-run.
+terminationGracePeriodSeconds: 30
+
+# -- The enrolled `dsp_` auth token persists under this path (OCTROI_DISPATCHER_DATA_DIR) so a
+# pod restart doesn't need re-enrolment. `emptyDir` (default) loses it on pod
+# deletion/rescheduling onto another node — fine for a single, disposable replica; set
+# `persistence.enabled: true` for a real deployment expected to survive restarts.
+# INCOMPATIBLE with `replicaCount > 1`: this is a single PVC, and every replica needs its own
+# distinct token file, never a shared one — a template guard refuses to render rather than let
+# replicas silently overwrite each other's token (FEATURE-dispatcher.md D6). Run multiple
+# replicas with the default `emptyDir` (each just re-enrols on its own restart) instead.
+persistence:
+  enabled: false
+  size: 64Mi
+  storageClassName: ""
+  accessMode: ReadWriteOnce
+
+# ── Application config — see README.md#config-surface ──
+config:
+  # -- Reachable from the customer's network; outbound HTTPS only .
+  coreUrl: ""
+  dispatcherVersion: ""
+
+# ── Declared profile — sent at enrolment ──
+# One dispatcher per scope: production and staging must not share credentials or network. Place the
+# dispatcher where its scope should stop. The core stays the authority: a scope or tag outside
+# the enrolment token's grant is refused.
+scope:
+  # -- The environment it serves (OCTROI_SCOPE_ENV). Empty = any (with `platforms` empty too:
+  # request the token's whole grant).
+  env: ""
+  # -- The platforms it serves (OCTROI_SCOPE_PLATFORMS). `["*"]` or empty = every platform of `env`.
+  platforms: []
+
+# -- What it knows how to run (OCTROI_TAGS): executor kinds (`shell`, `container`, `ansible`) and
+# the capability tags Actions name (e.g. `postgres`). Shell and container steps both run in the
+# container executor.
+tags:
+  - shell
+  - container
+
+# -- The highest risk it runs without a human approval (OCTROI_MAX_AUTO_APPROVED_RISK):
+# `readonly`, `reversible` or `destructive`. Enforced by the core's routing and by a local guard.
+maxAutoApprovedRisk: readonly
+
+# -- What one job container may consume (OCTROI_LIMITS_*) — the dispatcher's own limits, never set
+# by the core or by an Action. These are the dispatcher's defaults; they apply to the job
+# containers/Pods it starts, not to the dispatcher Pod itself (see `resources`).
+limits:
+  # -- CPU, Kubernetes notation (`500m`, `1`, `1.5`).
+  cpu: "1"
+  # -- Memory hard limit (Spring DataSize: `512MB`, `1GB`), no swap on top.
+  memory: 512MB
+  # -- Processes/threads in the container. Docker only — in Kubernetes it is the node's `podPidsLimit`.
+  pids: 256
+  # -- stdout + stderr forwarded to the core; the rest is dropped with a marker and a warning.
+  outputBytes: 1MB
+  # -- Size of each writable tmpfs: `/tmp` and the job's output directory (memory-backed `emptyDir`
+  # in Kubernetes).
+  scratch: 64MB
+  # -- Read-only image filesystem. `false` only for an image that cannot run without writing to it.
+  readOnlyRootFs: true
+
+secrets:
+  # -- Never defaulted. A `djn_` runner-enrolment token, minted by the core
+  # (POST /api/dispatcher/v1/enrol admin flow) — single-use, becomes a `dsp_` token on success.
+  enrolmentToken: ""
+
+# The job environment file: credentials every job this dispatcher runs receives.
+jobEnv:
+  # -- Name of an existing Secret with one key, `job.env` — a dotenv file (`NAME=value` per line,
+  # `#` comments, optional quotes). Mounted read-only at `/etc/octroi/job.env`; every entry is
+  # passed to every job container as an environment variable, and none ever reaches the core.
+  # The file is re-read before each run: updating the Secret rotates a credential, no restart.
+  # Empty = jobs get only their Action's own variables.
+  existingSecret: ""
+
+# ── Egress-only NetworkPolicy  — DNS + HTTPS out, nothing in ──
+networkPolicy:
+  enabled: true
+  # -- Extra egress rules appended to the default (DNS + HTTPS-anywhere) — e.g. a registry or
+  # target reachable only on a specific CIDR/port. Same shape as a NetworkPolicy spec.egress entry.
+  extraEgress: []
+
+# -- Escape hatch: extra env vars / an extra envFrom the deployment adds verbatim (e.g.
+# `OCTROI_DISPATCHER_KUBERNETES_NAMESPACE` / `OCTROI_DISPATCHER_KUBERNETES_SERVICEACCOUNTNAME`). Job credentials belong in `jobEnv.existingSecret`.
+extraEnv: []
+extraEnvFrom: []

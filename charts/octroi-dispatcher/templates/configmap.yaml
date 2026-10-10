@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "octroi-common.fullname" . }}
+  labels:
+    {{- include "octroi-common.labels" . | nindent 4 }}
+data:
+  MANAGEMENT_SERVER_PORT: {{ .Values.managementPort | quote }}
+  OCTROI_DISPATCHER_CORE_URL: {{ .Values.config.coreUrl | required "config.coreUrl is required" | quote }}
+  OCTROI_DISPATCHER_VERSION: {{ .Values.config.dispatcherVersion | default .Chart.AppVersion | quote }}
+  # The profile declared at enrolment.
+  OCTROI_SCOPE_ENV: {{ .Values.scope.env | quote }}
+  OCTROI_SCOPE_PLATFORMS: {{ join "," .Values.scope.platforms | quote }}
+  OCTROI_TAGS: {{ join "," .Values.tags | quote }}
+  OCTROI_MAX_AUTO_APPROVED_RISK: {{ .Values.maxAutoApprovedRisk | quote }}
+  # Per job container; empty = the dispatcher's default.
+  OCTROI_LIMITS_CPU: {{ .Values.limits.cpu | quote }}
+  OCTROI_LIMITS_MEMORY: {{ .Values.limits.memory | quote }}
+  OCTROI_LIMITS_PIDS: {{ .Values.limits.pids | quote }}
+  OCTROI_LIMITS_OUTPUT_BYTES: {{ .Values.limits.outputBytes | quote }}
+  OCTROI_LIMITS_SCRATCH: {{ .Values.limits.scratch | quote }}
+  OCTROI_LIMITS_READ_ONLY_ROOT_FS: {{ .Values.limits.readOnlyRootFs | quote }}
+  # Where the enrolled dsp_ token persists: the `data` volume (see deployment.yaml).
+  OCTROI_DISPATCHER_DATA_DIR: /data
