@@ -1,9 +1,9 @@
 apiVersion: v2
-appVersion: 0.3.3
+appVersion: 0.3.4
 dependencies:
 - name: octroi-common
   repository: file://../octroi-common
-  version: 0.3.3
+  version: 0.3.4
 description: octroi.ai dispatcher — runs approved jobs inside your own infrastructure;
   outbound HTTPS only, no inbound API.
 home: https://github.com/octroiai/helm-charts
@@ -17,4 +17,4 @@ name: octroi-dispatcher
 sources:
 - https://github.com/octroiai/helm-charts
 type: application
-version: 0.3.3
+version: 0.3.4
