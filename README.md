@@ -32,9 +32,10 @@ The image is `ghcr.io/octroiai/dispatcher`, at the chart's `appVersion` by defau
 
 ## Verify
 
-Releases are signed with [cosign](https://docs.sigstore.dev/cosign/). With `cosign.pub` from this
-repository:
+Releases — the chart and the dispatcher image — are signed with
+[cosign](https://docs.sigstore.dev/cosign/). With `cosign.pub` from this repository:
 
 ```console
 cosign verify --key cosign.pub ghcr.io/octroiai/charts/octroi-dispatcher:<version>
+cosign verify --key cosign.pub ghcr.io/octroiai/dispatcher:<version>
 ```
