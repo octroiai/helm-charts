@@ -1,6 +1,6 @@
 dependencies:
 - name: octroi-common
   repository: file://../octroi-common
-  version: 0.3.5
-digest: sha256:a55c1b5e8006f728599a6c5ca89476e41cc44a678246245dbee11db10c3c4d50
-generated: "2026-10-11T09:21:19.161854128Z"
+  version: 0.3.7
+digest: sha256:7cd26a10fcf031102f37eed99dde8d9020a78a3751dfbfd98d4f7239fedb05c2
+generated: "2026-10-11T17:20:59.644965234Z"
